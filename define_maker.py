@@ -1,13 +1,62 @@
+import json
+import time
+import re
+import os   
+import sys
+import urllib.request
+import base64
+
 from difflib import unified_diff
 from file_reader import File
 from file_reader import FileReader
 from version_control_system import VersionControlSystem
 from version_control_system import Git
 
-import re
-import os   
-import sys
 
+def progress_bar(target, current, total, bar_length=20):
+    percent = float(current) / total
+    arrow = '#' * int(round(percent * bar_length))
+    spaces = ' ' * (bar_length - len(arrow))
+    sys.stdout.write(f"\r[{arrow}{spaces}] {int(percent * 100)}%")
+    sys.stdout.flush()
+
+class DefineAdder:
+    def __init__(self, project_name, url, issue_number, email, api_token, define_files):
+        self.define_files = define_files
+        self.issue_number = issue_number
+        self.url = f"{url}/{issue_id}"
+
+    def addDefineToDefineFiles(project_name, module_name):
+        for file_path in self.define_files:
+            with open(file_path, 'a') as file:
+                file.write(f"### {self.url}/{project_name}-{self.issue_number}\n")
+                file.write(f"### {self.getSummaryFromJira()}\n")
+                file.write(f"#{module_name}\n")
+
+    def getSummaryFromJira():
+        credentials = f"{self.email}:{self.api_token}"
+        encoded_credentials = base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
+
+        headers = {
+            "Authorization": f"Basic {encoded_credentials}",
+            "Content-Type": "application/json"
+        }
+
+        request = urllib.request.Request(self.url, headers=headers)
+
+        summary = ""
+        try:
+            with urllib.request.urlopen(request) as response:
+                if response.status == 200:
+                    data = json.load(response)
+                    summary = data.get("fields", {}).get("summary", "Summary not found")
+                else:
+                    print(f"Error: Unable to fetch data. Status code: {response.status}")
+        except urllib.error.HTTPError as e:
+            print(f"HTTP Error: {e.code} - {e.reason}")
+        except urllib.error.URLError as e:
+            print(f"URL Error: {e.reason}")
+        return summary
 
 class ModuleMaker:
     def __init__(self, user_modified_file, original_file):
@@ -74,16 +123,21 @@ class ModuleMaker:
 
     def modify_file_with_module(self):
         for line in unified_diff(self.original_file.lines, self.user_modified_file.lines, fromfile=self.original_file.name, tofile=self.user_modified_file.name, lineterm=''):
-            print(line)
+            ("line_count", original_file.end_of_file)            
             if self.is_skip_line(line):
                 continue
-
+            
             if self.is_diff_chunk_start_line(line):
-                match = re.search(r"@@ -(\d+),(\d+) \+\d+,\d+ @@", line)
-        
-                current_chunk_begin_line = int(match.group(1))
-                current_chunk_length = int(match.group(2))
-                
+                match = re.search(r"@@ -(\d+).*? @@", line)
+                if match:
+                    current_chunk_begin_line = int(match.group(1))
+            
+                match = re.search(r"@@ -\d+,(\d+).*? @@", line)
+                if match:
+                    current_chunk_length = int(match.group(1))
+                else:
+                    current_chunk_length = 1
+                    
                 self.write_lines_after_previous_chunk_until(current_chunk_begin_line - 1)
                 self.previous_chunk_end_line = current_chunk_begin_line + (current_chunk_length - 1)
 
@@ -111,23 +165,25 @@ if len(sys.argv) < 3:
     sys.exit(1)
 
 moduleName = sys.argv[1]
-target_file_name = sys.argv[2]
-
-user_modified_file_name = target_file_name
+issue_number = sys.argv[2]
+file_names = sys.argv[3:]
+file_count = len(file_names)
 
 git = Git()
 file_reader = FileReader()
 
+print(f"* start QuickDefine")
+for idx, target_file_name in enumerate(file_names):
+    progress_bar(target_file_name, idx + 1, file_count)
 
-git.make_file_from_last_commit(f"{target_file_name}.orig", target_file_name)
+    user_modified_file_name = target_file_name
+    git.make_file_from_last_commit(f"{target_file_name}.orig", target_file_name)
 
-user_modified_file = file_reader.read_file(user_modified_file_name)       
-original_file = file_reader.read_file(f"{target_file_name}.orig")       
+    user_modified_file = file_reader.read_file(user_modified_file_name)       
+    original_file = file_reader.read_file(f"{target_file_name}.orig")       
 
 
-print(f"Start QuickDefine {target_file_name}")
-moduleMaker = ModuleMaker(user_modified_file, original_file)
-moduleMaker.modify_file_with_module()
+    moduleMaker = ModuleMaker(user_modified_file, original_file)
+    moduleMaker.modify_file_with_module()
 
-os.remove(f"{target_file_name}.orig")
-print(f"End QuickDefine")
+    os.remove(f"{target_file_name}.orig")
