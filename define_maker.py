@@ -165,8 +165,7 @@ if len(sys.argv) < 3:
     sys.exit(1)
 
 moduleName = sys.argv[1]
-issue_number = sys.argv[2]
-file_names = sys.argv[3:]
+file_names = sys.argv[2:]
 file_count = len(file_names)
 
 git = Git()
