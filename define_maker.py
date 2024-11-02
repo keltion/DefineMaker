@@ -161,7 +161,7 @@ class ModuleMaker:
 
 
 if len(sys.argv) < 3:
-    print("Usage: python3 wrap_diff.py MODULE_NAME FILENAME")
+    print("Usage: python3 define_maker.py MODULE_NAME FILENAME")
     sys.exit(1)
 
 moduleName = sys.argv[1]
