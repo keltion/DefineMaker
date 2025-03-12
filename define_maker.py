@@ -166,31 +166,71 @@ class ModuleMaker:
         with open(self._user_modified_file, 'w') as f:
             f.writelines(str(line) for line in self._result)
 
+def generate_go_rpc(service_name, func_name, param_type, return_type):
+    go_rpc_template = f"""
+    func (s *{service_name}Service) {func_name}(ctx context.Context, req *{param_type}) (*{return_type}, error) {{
+        return nil, nil
+    }}
+    """
+    return go_rpc_template.strip()
+
+def append_to_file(service_name, go_rpc_code, target):
+    # 파일 경로 생성
+    base_path = f"internal/{service_name}/{service_name}_service"
+    if target == 'server':
+        file_path = os.path.join(base_path, f"{service_name}_service_rpc_server.go")
+    else:
+        file_path = os.path.join(base_path, f"{service_name}_service_rpc_client.go")
+
+    # 디렉터리가 존재하지 않으면 생성
+    os.makedirs(base_path, exist_ok=True)
+
+    # 파일에 Append 모드로 작성
+    with open(file_path, "a", encoding="utf-8") as f:
+        f.write("\n\n" + go_rpc_code)
+
+    print(f"Go RPC 코드가 {file_path}에 추가되었습니다.")
+
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print("Usage: python3 define_maker.py MODULE_NAME FILENAME")
-        sys.exit(1)
-
-    moduleName = sys.argv[1]
-    file_names = sys.argv[2:]
-    file_count = len(file_names)
+#     if len(sys.argv) < 3:
+#         print("Usage: python3 generate_stub.py")
+#         sys.exit(1)
 
     git = Git()
     file_reader = FileReader()
 
-    print(f"* start QuickDefine")
-    for idx, target_file_name in enumerate(file_names):
-        progress_bar(target_file_name, idx + 1, file_count)
+    print(f"* start to generate stub")
 
-        user_modified_file_name = target_file_name
-        git.make_file_from_last_commit(f"{target_file_name}.orig", target_file_name)
+    results = git.parse_proto_from_last_commit()
+    for key, values in results.items():
+        for value in values:
+            target = 'client'
+            if value[1].startswith('server_common') and value[2].startswith('server_common'):
+                target = 'server'
+            go_rpc_code = generate_go_rpc(key[0].upper() + key[1:], value[0], value[1], value[2])
+            # print(go_rpc_code)
+            # print('\n')
+            append_to_file(key, go_rpc_code, target)
 
-        user_modified_file = file_reader.read_file(user_modified_file_name)
-        original_file = file_reader.read_file(f"{target_file_name}.orig")
 
 
-        moduleMaker = ModuleMaker(user_modified_file, original_file)
-        moduleMaker.modify_file_with_module()
 
-        os.remove(f"{target_file_name}.orig")
+
+
+
+
+
+
+        # if result[1].startswith('server_common'):
+        #     print('server')
+#     git.make_file_from_last_commit(f"{target_file_name}.orig", target_file_name)
+#
+#     user_modified_file = file_reader.read_file(user_modified_file_name)
+#     original_file = file_reader.read_file(f"{target_file_name}.orig")
+#
+#
+#     moduleMaker = ModuleMaker(user_modified_file, original_file)
+#     moduleMaker.modify_file_with_module()
+#
+#     os.remove(f"{target_file_name}.orig")
