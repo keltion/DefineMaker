@@ -1,3 +1,4 @@
 rpc UpdateSessiosultFromCheat(server_common.UpdateSultReq) returns (server_common.UpdatameResultRes)
 rpc UpdateSeResul(server_common.Updateq) returns (server_common.UpdaRes)
+rpc UpdateSeResuld(server_common.Updateq) returns (server_common.UpdaRes)
 fjiekd
